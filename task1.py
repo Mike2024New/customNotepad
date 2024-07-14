@@ -9,16 +9,74 @@ import sys
 from PyQt5 import uic
 from PyQt5.QtGui import QTextCharFormat, QTextCursor, QColor
 from PyQt5.QtWidgets import QWidget, QApplication, QTextEdit, QColorDialog, QInputDialog
+from customWidgets import ListWidgetAdvanced  # это самописный адаптер для работы с виджетами (в данном случае listWidg)
+
+searches_frases = {"123": (255, 0, 0), "test": (0, 128, 0)}  # таблица ключевых слов (потом уберу в json)
+
+
+class KeyWords(QWidget):
+    """этот класс отвечает за окно менеджера ключевых слов, в нём добавляются новые слова и цвет выделения для них"""
+
+    def __init__(self):
+        super().__init__()
+        # self.changed_text = changed_text
+        self.LW = ListWidgetAdvanced()  # адаптер для работы с QListWiget
+        self.window_keys_words = None  # окно менеджера слов, инициализируется каждый раз при вызове init
+
+    def window_key_words_init(self) -> None:
+        """инициализация окна менеджера добавленных ключевых слов"""
+        self.window_keys_words = uic.loadUi('user_forms/key_words.ui')  # окно с ключевыми словами
+        self.window_keys_words.btn_new_words.clicked.connect(lambda: self.window_key_words_edit())  # добавить кл слово
+        self.window_keys_words.btn_del_words.clicked.connect(lambda: self.window_key_words_delete())
+        self.window_key_words_show_words()
+        self.window_keys_words.show()
+
+    def window_key_words_edit(self) -> None:
+        self.add_key_word()  # добавление нового слова (или обновление старого)
+        self.window_key_words_show_words()  # отобразить ключевые слова после добавления нового слова
+
+    def window_key_words_delete(self) -> None:
+        """удаление ключевого слова с параметром цвета из search_frases"""
+        words = self.LW.list_widget_read_select_row(list_widget=self.window_keys_words.listWidget)  # получение слова
+        if words:
+            searches_frases.pop(words.split(" ")[0])
+            self.LW.list_widget_delete_select_row(list_widget=self.window_keys_words.listWidget)
+
+    def window_key_words_show_words(self) -> None:
+        """отображение ключевых слов на экране (обновление listwidget)"""
+        self.LW.list_widget_delete_all_rows(self.window_keys_words.listWidget)  # удаление всех строк из listWidget
+        test_list = [f"{key} : {searches_frases[key]}" for key in searches_frases]  # загрузить все ключ слова
+        self.LW.list_widget_add_rows_many(self.window_keys_words.listWidget, values_list=test_list)  # вывести их на экр
+
+    def add_key_word(self) -> None:
+        """
+        Создание нового ключевого слова (редактирование уже существующего), сперва откроется окно которое предложит
+        ввести слово, если слово введено, то следом за ним появится окно выбора цвета для этого слова, а за тем
+        все слова в тексте соответствующие заданному критерию будут изменены.
+        Чуть позже добавленные слова будут сохраняться в json файл, чтобы они сохранялись и после перезапуска программы
+        :return:None
+        """
+        search_frase, ok = QInputDialog.getText(self, "Добавить слово", "Введите ключевое слово:")
+        if ok and search_frase:
+            color_dialog = QColorDialog(self)  # окно выбора цвета
+            if color_dialog.exec_():
+                print("color exit")
+                selected_color = color_dialog.selectedColor()  # считать выбранный цвет
+                rgb = (selected_color.red(), selected_color.green(), selected_color.blue())  # извлечь rgb
+                searches_frases[search_frase] = rgb  # добавить новую пару значение цвет в коллекцию ключ слов
+                self.window_key_words_show_words()  # отобразить ключевые слова после добавления нового слова
+                # self.changed_text()  # Обновляем выделение текста (чтобы изменения сразу же вступили в силу)
 
 
 class UserForm(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.main_window = uic.loadUi('user_forms/notepad2.ui')
-        self.searches_frases = {"123": (255, 0, 0), "test": (0, 128, 0)}  # таблица ключевых слов (потом уберу в json)
+        self.window_key_words = KeyWords()
+        self.window_keys_words = None  # окно с ключевыми словами (загружается только внутри своей функции)
         self.main_window.textEdit.textChanged.connect(self.changed_text)  # реакция на любое изменение текста в поле
-        self.main_window.action_tab_replace.triggered.connect(self.add_key_word)
         self.main_window.action_exit.triggered.connect(lambda: self.main_window.close())  # кнопка выход (меню бар)
+        self.main_window.action_tab_replace.triggered.connect(lambda: self.window_key_words.window_key_words_init())
         self.main_window.show()
 
     def changed_text(self) -> None:
@@ -33,9 +91,9 @@ class UserForm(QWidget):
         extra_selections = []
 
         # Ищем все вхождения слова "test" в тексте
-        for search_frase in self.searches_frases:
+        for search_frase in searches_frases:
             format_highlight = QTextCharFormat()
-            format_highlight.setForeground(QColor(*self.searches_frases[search_frase]))  # изменение цвета самого текста
+            format_highlight.setForeground(QColor(*searches_frases[search_frase]))  # изменение цвета самого текста
             start = 0
             while True:
                 start = text.find(search_frase, start)
@@ -55,23 +113,6 @@ class UserForm(QWidget):
 
                 # Применяем выделения к QTextEdit
                 text_edit.setExtraSelections(extra_selections)
-
-    def add_key_word(self) -> None:
-        """
-        Создание нового ключевого слова (редактирование уже существующего), сперва откроется окно которое предложит
-        ввести слово, если слово введено, то следом за ним появится окно выбора цвета для этого слова, а за тем
-        все слова в тексте соответствующие заданному критерию будут изменены.
-        Чуть позже добавленные слова будут сохраняться в json файл, чтобы они сохранялись и после перезапуска программы
-        :return:None
-        """
-        search_frase, ok = QInputDialog.getText(self, "Добавить слово", "Введите ключевое слово:")
-        if ok and search_frase:
-            color_dialog = QColorDialog(self)  # окно выбора цвета
-            if color_dialog.exec_():
-                selected_color = color_dialog.selectedColor()  # считать выбранный цвет
-                rgb = (selected_color.red(), selected_color.green(), selected_color.blue())  # извлечь rgb
-                self.searches_frases[search_frase] = rgb  # добавить новую пару значение цвет в коллекцию ключ слов
-                self.changed_text()  # Обновляем выделение текста (чтобы изменения сразу же вступили в силу)
 
 
 if __name__ == '__main__':
