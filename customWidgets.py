@@ -10,20 +10,22 @@ from PyQt5.QtWidgets import QListWidget, QLineEdit, QAbstractItemView, QDateTime
 class ErrorHandler:
     """МЕНЕДЖЕР КОНТЕКСТА - ОБРАБАТЫВАЕТ ОШИБКИ"""
 
-    def __init__(self, blocking: bool) -> None:
+    def __init__(self, blocking: bool, msg="") -> None:
         """
         :param blocking: установка флага -> если True то код продолжится после того как сработало исключение,
         но исключение выведется на консоль (или запишется в журнал)
         если false то сработает reise error и программа будет остановлена
+        :param msg: дополнительное сообщение к исключению
         """
         self.blocking = blocking
+        self.msg = msg
 
     def __enter__(self):
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
-            print(f"ERROR: {exc_val}")
+            print(f"{self.msg}\t - ERROR: {exc_val}")
             return self.blocking
         return True
 

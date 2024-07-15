@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>CustomNotepad</string>
+   <string>MainWindow</string>
   </property>
   <property name="styleSheet">
    <string notr="true">QWidget{
@@ -32,7 +32,6 @@
     </item>
    </layout>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
@@ -42,25 +41,8 @@
      <height>22</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menu">
-    <property name="title">
-     <string>меню</string>
-    </property>
-    <addaction name="action_tab_replace"/>
-    <addaction name="action_exit"/>
-   </widget>
-   <addaction name="menu"/>
   </widget>
-  <action name="action_tab_replace">
-   <property name="text">
-    <string>таблица замены</string>
-   </property>
-  </action>
-  <action name="action_exit">
-   <property name="text">
-    <string>выход</string>
-   </property>
-  </action>
+  <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <resources/>
  <connections/>
