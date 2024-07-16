@@ -10,8 +10,9 @@ import os
 import sys
 import inspect
 from PyQt5 import uic
-from PyQt5.QtGui import QTextCharFormat, QTextCursor, QColor
-from PyQt5.QtWidgets import QWidget, QApplication, QTextEdit, QColorDialog, QInputDialog, QAction
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QTextCharFormat, QTextCursor, QColor, QFont, QKeySequence, QBrush
+from PyQt5.QtWidgets import QWidget, QApplication, QTextEdit, QColorDialog, QInputDialog, QAction, QShortcut
 from customWidgets import ListWidgetAdvanced  # это самописный адаптер для работы с виджетами (в данном случае listWidg)
 from customWidgets import ErrorHandler
 from JsonManager import JsonManager
@@ -128,11 +129,15 @@ class KeyWords(QWidget):
 class UserForm(QWidget):
     """главное окно приложения, остальные классы подключаются как модули"""
 
+    # noinspection PyUnresolvedReferences
     def __init__(self) -> None:
         super().__init__()
         self.main_window = uic.loadUi('user_forms/notepad3.ui')  # загрузка окна
         self.main_window.textEdit.textChanged.connect(self.changed_text)  # реакция на любое изменение текста в поле
         self.checker_json()  # проверка есть ли json файл приложения, если нет то создать
+        self.assigning_hotkeys()  # подключение комбинаций горячих клавиш
+        self.main_window.btn_bold.clicked.connect(lambda: self.selected_text_bold())
+        self.main_window.btn_underline.clicked.connect(lambda: self.selected_text_underline())
         self.main_window.show()
         self.actions_list = []  # - функции которые будут срабатывать при изменении TextEdit
         # ===========================================================
@@ -143,6 +148,7 @@ class UserForm(QWidget):
         """ПОДКЛЮЧАЕМЫЕ МОДУЛИ - к модулям есть требование, все их методы должны быть обложены try/except, чтобы
         непредвиденные ошибки не привели к вылету основного приложения"""
 
+        # noinspection PyUnresolvedReferences
         def test():
             """
             подключение KeyWords - выделения цветом ключевых слов (добавление ключевых слов)
@@ -178,6 +184,56 @@ class UserForm(QWidget):
         :return: None
         """
         [func() for func in self.actions_list]
+
+    # noinspection PyUnresolvedReferences
+    def assigning_hotkeys(self):
+        """привязка горячих клавиш к функциям"""
+        # при нажатии на ctrl+b будет выполняться функция сделать текст жирным
+        QShortcut(QKeySequence(Qt.CTRL + Qt.Key_B), self.main_window).activated.connect(
+            lambda: self.selected_text_bold())  # сделать текст жирным / или наоборот
+
+        QShortcut(QKeySequence(Qt.CTRL + Qt.Key_D), self.main_window).activated.connect(
+            lambda: self.selected_text_color())  # сделать текст красным / или наоборот
+
+        QShortcut(QKeySequence(Qt.CTRL + Qt.Key_U), self.main_window).activated.connect(
+            lambda: self.selected_text_underline())  # сделать текст подчёркнутым / или наоборот
+
+    def selected_text_bold(self) -> None:
+        """
+        редактирование формата текста в данном случае сделать текст жирным
+        :return: None
+        """
+        cursor = self.main_window.textEdit.textCursor()
+        existing_format = cursor.charFormat()  # прочитать текущие настройки выделенного текста
+        if cursor.hasSelection():
+            char_format = QTextCharFormat(existing_format)
+            if not char_format.font().bold():
+                char_format.setFontWeight(QFont.Bold)
+            else:
+                char_format.setFontWeight(QFont.Normal)
+            cursor.setCharFormat(char_format)
+            self.main_window.textEdit.setTextCursor(cursor)
+
+    def selected_text_color(self):
+        cursor = self.main_window.textEdit.textCursor()
+        existing_format = cursor.charFormat()
+        if cursor.hasSelection():
+            char_format = QTextCharFormat(existing_format)
+            char_format.setForeground(QBrush(Qt.red))
+            cursor.setCharFormat(char_format)
+            self.main_window.textEdit.setTextCursor(cursor)
+
+    def selected_text_underline(self):
+        cursor = self.main_window.textEdit.textCursor()
+        existing_format = cursor.charFormat()
+        if cursor.hasSelection():
+            char_format = QTextCharFormat(existing_format)
+            if not char_format.fontUnderline():
+                char_format.setFontUnderline(True)
+            else:
+                char_format.setFontUnderline(False)
+            cursor.setCharFormat(char_format)
+            self.main_window.textEdit.setTextCursor(cursor)
 
 
 if __name__ == '__main__':
