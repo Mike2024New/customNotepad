@@ -136,10 +136,19 @@ class UserForm(QWidget):
         self.main_window.textEdit.textChanged.connect(self.changed_text)  # реакция на любое изменение текста в поле
         self.checker_json()  # проверка есть ли json файл приложения, если нет то создать
         self.assigning_hotkeys()  # подключение комбинаций горячих клавиш
-        self.main_window.btn_bold.clicked.connect(lambda: self.selected_text_bold())
-        self.main_window.btn_underline.clicked.connect(lambda: self.selected_text_underline())
+        self.is_italic = False  # флаг курсива
+        self.is_bold = False  # флаг ожирения текста
+        self.is_underline = False  # флаг подчеркивания текста
+        self.main_window.btn_bold.clicked.connect(lambda: self.toggle_buttons(command="bold"))
+        self.main_window.btn_cursive.clicked.connect(lambda: self.toggle_buttons(command="italic"))
+        self.main_window.btn_underline.clicked.connect(lambda: self.toggle_buttons(command="underline"))
+        self.main_window.test_btn.clicked.connect(lambda: self.get_html())
+        self.main_window.test2_btn.clicked.connect(lambda: self.get_text())
+        self.main_window.test3_btn.clicked.connect(lambda: self.set_text_in_editor())
+        self.main_window.test4_btn.clicked.connect(lambda: print("заглушка"))
         self.main_window.show()
         self.actions_list = []  # - функции которые будут срабатывать при изменении TextEdit
+        self.apply_text_format()
         # ===========================================================
         # Меню бар в верху (встроенные пункты меню, по умолчанию)
         menubar = self.main_window.menuBar()  # создание объекта меню
@@ -149,6 +158,7 @@ class UserForm(QWidget):
         непредвиденные ошибки не привели к вылету основного приложения"""
 
         # noinspection PyUnresolvedReferences
+
         def test():
             """
             подключение KeyWords - выделения цветом ключевых слов (добавление ключевых слов)
@@ -164,13 +174,34 @@ class UserForm(QWidget):
             btn_action.triggered.connect(lambda: self.window_key_words.window_key_words_init())
             file_menu.addAction(btn_action)  # размещение кнопки на вкладке
 
-        test()
+        test()  # подключение менеджера ключевых слов
 
         # ===========================================================
         """ДОБАВЛЕНИЕ КНОПКИ ВЫХОД (РАЗМЕЩЕНО ЗДЕСЬ, ПОСЛЕ КНОПОК ПОДКЛЮЧАЕМЫХ МОДУЛЕЙ)"""
         new_action = QAction('Выход', self.main_window)  # создание кнопки для меню
         new_action.triggered.connect(lambda: self.main_window.close())  # подключение сигнала к слоту (назнач функцию)
         file_menu.addAction(new_action)  # размещение кнопки на вкладке
+
+    def get_html(self):
+        html = self.main_window.textEdit.toHtml()
+        # print(html)
+        return html
+
+    def get_text(self):
+        # textEdit = QTextEdit()
+        # textEdit.toPlainText()
+        text = self.main_window.textEdit.toPlainText()
+        print(text)
+
+    def set_text_in_editor(self):
+        # форматирование нужно делать через html, при этом меняя (удаляя старые теги)
+        with ErrorHandler(blocking=True, msg=f"Ошибка расширения {inspect.currentframe()}"):
+            html: str = self.get_html()
+            print(html)
+            # нужно заменить исходный test
+            html = html.replace("for", """<span style=" color:#0000ff;">for</span>""")
+            print(html)
+            self.main_window.textEdit.setHtml(html)
 
     @staticmethod
     def checker_json():
@@ -183,55 +214,73 @@ class UserForm(QWidget):
         Метод срабатывает на любое изменение текста в TextEdit и запускает команды из self.actions_list
         :return: None
         """
-        [func() for func in self.actions_list]
+        with ErrorHandler(blocking=True, msg=f"Ошибка расширения {inspect.currentframe()}"):
+            [func() for func in self.actions_list]
 
     # noinspection PyUnresolvedReferences
-    def assigning_hotkeys(self):
+    def assigning_hotkeys(self) -> None:
         """привязка горячих клавиш к функциям"""
         # при нажатии на ctrl+b будет выполняться функция сделать текст жирным
         QShortcut(QKeySequence(Qt.CTRL + Qt.Key_B), self.main_window).activated.connect(
-            lambda: self.selected_text_bold())  # сделать текст жирным / или наоборот
+            lambda: self.toggle_buttons(command="bold"))  # сделать текст жирным / или наоборот
 
-        QShortcut(QKeySequence(Qt.CTRL + Qt.Key_D), self.main_window).activated.connect(
-            lambda: self.selected_text_color())  # сделать текст красным / или наоборот
+        QShortcut(QKeySequence(Qt.CTRL + Qt.Key_I), self.main_window).activated.connect(
+            lambda: self.toggle_buttons(command="italic"))  # сделать текст наклонным
 
         QShortcut(QKeySequence(Qt.CTRL + Qt.Key_U), self.main_window).activated.connect(
-            lambda: self.selected_text_underline())  # сделать текст подчёркнутым / или наоборот
+            lambda: self.toggle_buttons(command="underline"))  # сделать текст наклонным
 
-    def selected_text_bold(self) -> None:
+    def toggle_buttons(self, command: str) -> None:
         """
-        редактирование формата текста в данном случае сделать текст жирным
-        :return: None
+        toggle - кнопки
+        :param command: italic; bold; underline
+        :return:
         """
-        cursor = self.main_window.textEdit.textCursor()
-        existing_format = cursor.charFormat()  # прочитать текущие настройки выделенного текста
-        if cursor.hasSelection():
-            char_format = QTextCharFormat(existing_format)
-            if not char_format.font().bold():
-                char_format.setFontWeight(QFont.Bold)
+        """подключаемые модули"""
+        # ======== КУРСИВ ТЕКСТА ====================
+        if command == "italic":
+            self.is_italic = not self.is_italic
+            if self.is_italic:
+                self.main_window.btn_cursive.setStyleSheet("background-color: red;")
             else:
-                char_format.setFontWeight(QFont.Normal)
-            cursor.setCharFormat(char_format)
-            self.main_window.textEdit.setTextCursor(cursor)
+                self.main_window.btn_cursive.setStyleSheet("background-color: none;")
 
-    def selected_text_color(self):
-        cursor = self.main_window.textEdit.textCursor()
-        existing_format = cursor.charFormat()
-        if cursor.hasSelection():
-            char_format = QTextCharFormat(existing_format)
-            char_format.setForeground(QBrush(Qt.red))
-            cursor.setCharFormat(char_format)
-            self.main_window.textEdit.setTextCursor(cursor)
-
-    def selected_text_underline(self):
-        cursor = self.main_window.textEdit.textCursor()
-        existing_format = cursor.charFormat()
-        if cursor.hasSelection():
-            char_format = QTextCharFormat(existing_format)
-            if not char_format.fontUnderline():
-                char_format.setFontUnderline(True)
+        # ======= ОЖИРЕНИЕ ТЕКСТА ===================
+        elif command == "bold":
+            self.is_bold = not self.is_bold
+            if self.is_bold:
+                self.main_window.btn_bold.setStyleSheet("background-color: red;")
             else:
-                char_format.setFontUnderline(False)
+                self.main_window.btn_bold.setStyleSheet("background-color: none;")
+
+        # ======= ПОДЧЕРКИВАНИЕ ТЕКСТА ==============
+        elif command == "underline":
+            self.is_underline = not self.is_underline
+            if self.is_underline:
+                self.main_window.btn_underline.setStyleSheet("background-color: red;")
+            else:
+                self.main_window.btn_underline.setStyleSheet("background-color: none;")
+
+        """действия после определения toggle button"""
+        self.apply_text_format()  # применение форматирования
+        cursor = self.main_window.textEdit.textCursor()  # Сохраняем текущий курсор
+        self.main_window.textEdit.setTextCursor(cursor)  # Восстанавливаем курсор на прежнее место
+        self.main_window.textEdit.setFocus()  # Возвращаем фокус на текстовое поле
+
+    def apply_text_format(self):
+        """применение формата к тексту: жирный, кривой, подчёркнутый"""
+        font_size = 12
+        with ErrorHandler(blocking=True, msg=f"Ошибка {inspect.currentframe()}"):
+            print("apply_format")
+            cursor = self.main_window.textEdit.textCursor()
+            char_format = QTextCharFormat()
+            font = char_format.font()
+            font.setFamily(self.main_window.font().family())
+            font.setPointSize(font_size)  # предустановленный шрифт (позже будет скачиваться из настроек)
+            font.setStyle(font.StyleItalic if self.is_italic else font.StyleNormal)  # наклонный текст italic
+            font.setBold(self.is_bold)  # жирный текст bold
+            char_format.setFont(font)  # применение стилей к тексту (важно чтобы эта строка была перед underline)
+            char_format.setFontUnderline(self.is_underline)  # подчеркивание текста
             cursor.setCharFormat(char_format)
             self.main_window.textEdit.setTextCursor(cursor)
 
